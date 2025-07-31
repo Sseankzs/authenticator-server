@@ -1,30 +1,40 @@
-# merchant_routes.py
-
 from flask import Blueprint, request, jsonify
-from firebase_admin import firestore
-from datetime import datetime
+from firebase_utils import firestore
+from encryption_utils import encrypt_data
+import uuid
 
-bp = Blueprint("merchant", __name__)
-db = firestore.client()
+merchant_bp = Blueprint('merchant', __name__)
 
-@bp.route("/merchant/add_transaction", methods=["POST"])
+@merchant_bp.route('/merchant/transaction', methods=['POST'])
 def merchant_add_transaction():
+    """
+    json expected:
+    {
+        "userId": "user_id",
+        "accountId": "account_id",
+        "amount": 100.0,
+        "category": "Food",
+        "merchant": "KFC",
+        }
+
+    """
     data = request.json
-    required = ["userId", "accountId", "transactionId", "amount", "category", "merchant", "status"]
+    user_id = data['userId']
+    account_id = data['accountId']
+    transaction_id = str(uuid.uuid4())
 
-    if not all(k in data for k in required):
-        return jsonify({"error": "Missing fields"}), 400
+    encrypted_tx = {
+        'amount': data['amount'],
+        'category': encrypt_data(data['category']),
+        'merchant': encrypt_data(data['merchant']),
+        'status': "success",
+        'timestamp': firestore.SERVER_TIMESTAMP
+    }
 
-    trx_ref = db.collection("users").document(data["userId"]) \
-                .collection("bankAccounts").document(data["accountId"]) \
-                .collection("transactions").document(data["transactionId"])
+    tx_ref = firestore.collection('users')\
+        .document(user_id).collection('linkedAccounts')\
+        .document(account_id).collection('transactions')\
+        .document(transaction_id)
 
-    trx_ref.set({
-        "amount": data["amount"],
-        "category": data["category"],
-        "merchant": data["merchant"],
-        "status": data["status"],
-        "timestamp": data.get("timestamp", datetime.utcnow())
-    })
-
-    return jsonify({"status": "Transaction added by merchant"}), 200
+    tx_ref.set(encrypted_tx)
+    return jsonify({'transactionId': transaction_id}), 200
