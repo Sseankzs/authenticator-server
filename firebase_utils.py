@@ -1,18 +1,29 @@
-import os
-import json
+# firebase_utils.py
 import firebase_admin
 from firebase_admin import credentials, firestore
+import os
+import json
 
-# Write the JSON key to a temp file
-firebase_key = os.environ.get("FIREBASE_KEY")
-key_path = "temp_service_account.json"
+db = None
 
-if firebase_key:
-    with open(key_path, "w") as f:
-        json.dump(json.loads(firebase_key), f)
+def init_firebase(cred_path="serviceAccountKey.json"):
+    global db
+    if not firebase_admin._apps:
+        if os.path.exists(cred_path):
+            cred = credentials.Certificate(cred_path)
+        elif os.environ.get("FIREBASE_KEY"):
+            # Load from environment (Render deployment)
+            key_data = json.loads(os.environ["FIREBASE_KEY"])
+            cred = credentials.Certificate(key_data)
+        else:
+            # Fallback to default credentials (e.g., GCP)
+            cred = credentials.ApplicationDefault()
 
-    cred = credentials.Certificate(key_path)
-    firebase_admin.initialize_app(cred)
+        firebase_admin.initialize_app(cred)
+
     db = firestore.client()
-else:
-    raise RuntimeError("FIREBASE_KEY environment variable not set")
+    return db
+
+# Automatically initialize if running locally
+if not firebase_admin._apps:
+    init_firebase()
