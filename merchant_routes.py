@@ -16,9 +16,7 @@ def merchant_add_transaction():
     """
     json expected:
     {
-        "userId": "user_id",
-        "accountId": "account_id",
-        "transactionId": "transaction_id", (optional)
+        "transactionId": "optional_custom_id",
         "amount": 100.0,
         "category": "Food",
         "merchant": "KFC",
@@ -26,31 +24,39 @@ def merchant_add_transaction():
     }
     """
     data = request.json
-    user_id = data['userId']
-    account_id = data['accountId']
-    transaction_id = data.get('transactionId', str(uuid.uuid4()))
     input_vector = data.get('vector')
-
     if not input_vector:
         return jsonify({'error': 'Palm vector is required'}), 400
 
-    # Step 1: Get user's stored encrypted palm vector
-    user_doc = db.collection("users").document(user_id).get()
-    if not user_doc.exists:
-        return jsonify({'error': 'User not found'}), 404
+    # Step 1: Find matching user
+    users_ref = db.collection("users").stream()
+    matched_user_id = None
+    for user in users_ref:
+        user_data = user.to_dict()
+        if "palmVector" not in user_data:
+            continue
+        try:
+            stored_vector = decrypt_vector(user_data["palmVector"])
+            similarity = cosine_similarity(input_vector, stored_vector)
+            if similarity >= 0.95:
+                matched_user_id = user.id
+                break
+        except Exception:
+            continue
 
-    user_data = user_doc.to_dict()
-    if "palmVector" not in user_data:
-        return jsonify({'error': 'No palm vector stored for user'}), 400
+    if not matched_user_id:
+        return jsonify({'error': 'No matching user found'}), 403
 
-    stored_vector = decrypt_vector(user_data["palmVector"])
-    similarity = cosine_similarity(input_vector, stored_vector)
+    # Step 2: Get default account
+    matched_user_doc = db.collection("users").document(matched_user_id).get()
+    default_account = matched_user_doc.to_dict().get("defaultAccount")
+    if not default_account:
+        return jsonify({'error': 'Default account not set'}), 400
 
-    if similarity < 0.95:  # Set your threshold
-        return jsonify({'error': 'Palm verification failed'}), 403
-
-    # Step 2: Encrypt and store the transaction
+    # Step 3: Store transaction
+    transaction_id = str(uuid.uuid4())
     encrypted_tx = {
+        'transactionId': data.get('transactionId', transaction_id),
         'amount': data['amount'],
         'category': encrypt_data(data['category']),
         'merchant': encrypt_data(data['merchant']),
@@ -58,9 +64,11 @@ def merchant_add_transaction():
         'timestamp': firestore.SERVER_TIMESTAMP
     }
 
-    tx_ref = db.collection('users')\
-        .document(user_id).collection('linkedAccounts')\
-        .document(account_id).collection('transactions')\
+    tx_ref = db.collection('users') \
+        .document(matched_user_id) \
+        .collection('bankAccounts') \
+        .document(default_account) \
+        .collection('transactions') \
         .document(transaction_id)
 
     tx_ref.set(encrypted_tx)
