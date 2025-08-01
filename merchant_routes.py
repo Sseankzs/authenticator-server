@@ -3,6 +3,11 @@ from firebase_utils import db, firestore
 from encryption_utils import encrypt_data, decrypt_vector
 import uuid
 import numpy as np
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 merchant_bp = Blueprint('merchant', __name__)
 
@@ -31,6 +36,8 @@ def merchant_add_transaction():
     # Step 1: Find matching user
     users_ref = db.collection("users").stream()
     matched_user_id = None
+    logger.info("Starting palm vector matching process...")
+    
     for user in users_ref:
         user_data = user.to_dict()
         if "palmVector" not in user_data:
@@ -38,13 +45,17 @@ def merchant_add_transaction():
         try:
             stored_vector = decrypt_vector(user_data["palmVector"])
             similarity = cosine_similarity(input_vector, stored_vector)
-            if similarity >= 0.95:
+            logger.info(f"User {user.id}: similarity = {similarity:.4f}")
+            if similarity >= 0.99:
                 matched_user_id = user.id
+                logger.info(f"✓ Match found! User ID: {matched_user_id} (similarity: {similarity:.4f})")
                 break
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Error processing user {user.id}: {str(e)}")
             continue
 
     if not matched_user_id:
+        logger.error("No matching user found with similarity >= 0.95")
         return jsonify({'error': 'No matching user found'}), 403
 
     # Step 2: Get default account
@@ -66,7 +77,7 @@ def merchant_add_transaction():
 
     tx_ref = db.collection('users') \
         .document(matched_user_id) \
-        .collection('bankAccounts') \
+        .collection('linkedAccounts') \
         .document(default_account) \
         .collection('transactions') \
         .document(transaction_id)

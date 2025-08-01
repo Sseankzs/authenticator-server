@@ -2,7 +2,6 @@
 import requests
 import random
 from datetime import datetime, timedelta
-import argparse
 
 BASE_URL = "https://authenticator-server-87a8.onrender.com"  # adjust if deployed
 
@@ -13,20 +12,6 @@ palm_vector = [0.12, 0.34, 0.18, 0.45, 0.67, 0.23]  # Example palm vector
 CATEGORIES = ['Groceries', 'Food & Drink', 'Bills', 'Transport', 'Others']
 MERCHANTS = ["KFC", "McD", "Tesco", "Grab", "Shell", "7-Eleven", "Parkson", "CinemaX", "GymCo", "CafeBrew"]
 
-
-def post(path, data):
-    res = requests.post(f"{BASE_URL}{path}", json=data)
-    try:
-        print(f"POST {path} → {res.status_code}\n", res.json(), "\n")
-        return res.json()
-    except Exception:
-        print(f"POST {path} → {res.status_code}\n", res.text, "\n")
-
-post("/register_palm", {
-    "userId": user_id,
-    "vector": palm_vector
-})
-
 def random_timestamp_within_last_month():
     now = datetime.utcnow()
     past = now - timedelta(days=30)
@@ -35,12 +20,13 @@ def random_timestamp_within_last_month():
     ts = past + timedelta(seconds=random_seconds)
     return ts.isoformat() + "Z"  # ISO with Z
 
-def post_transaction(user_id, account_id):
+def post_transaction():
     transaction_id = f"trx_{random.randint(100000, 999999)}"
     amount = round(random.uniform(5.0, 200.0), 2)
     category = random.choice(CATEGORIES)
     merchant = random.choice(MERCHANTS)
     payload = {
+        "vector": palm_vector,
         "transactionId": transaction_id,
         "amount": amount,
         "category": category,
@@ -54,18 +40,15 @@ def post_transaction(user_id, account_id):
         print(f"[ERR] {transaction_id}: {res.status_code} {res.text.strip()}")
 
 def main():
-    parser = argparse.ArgumentParser(description="Populate random transactions")
-    parser.add_argument("--user", required=True, help="User ID")
-    parser.add_argument("--account", required=True, help="Account ID")
-    parser.add_argument("-n", type=int, default=40, help="Number of transactions")
-    parser.add_argument("--base", default=BASE_URL, help="Base URL of server")
-    args = parser.parse_args()
-
-    global BASE_URL
-    BASE_URL = args.base.rstrip("/")
-
-    for i in range(args.n):
-        post_transaction(args.user, args.account)
+    # Number of transactions to create
+    num_transactions = 40
+    
+    print(f"Creating {num_transactions} transactions for user {user_id}")
+    print(f"Using palm vector: {palm_vector}")
+    print("-" * 50)
+    
+    for i in range(num_transactions):
+        post_transaction()
 
 if __name__ == "__main__":
     main()
