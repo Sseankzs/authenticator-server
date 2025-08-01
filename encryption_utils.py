@@ -2,9 +2,21 @@ from cryptography.fernet import Fernet
 import base64
 import os
 import json
+from dotenv import load_dotenv
 
-key = base64.urlsafe_b64encode(os.environ["FERNET_KEY"].encode())
-cipher = Fernet(key)
+load_dotenv()
+
+raw_key = os.environ.get("FERNET_KEY")
+if not raw_key:
+    raise ValueError("FERNET_KEY not found in environment.")
+
+try:
+    key = base64.urlsafe_b64decode(raw_key)
+    if len(key) != 32:
+        raise ValueError("FERNET_KEY is not 32 bytes after decoding.")
+except Exception as e:
+    raise ValueError(f"Invalid FERNET_KEY: {e}")
+cipher = Fernet(base64.urlsafe_b64encode(key))
 
 def encrypt_data(data: str) -> str:
     return cipher.encrypt(data.encode()).decode()
