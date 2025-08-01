@@ -2,7 +2,7 @@
 import requests
 from datetime import datetime
 
-BASE_URL = "http://localhost:5000"
+BASE_URL = "https://authenticator-server-87a8.onrender.com"
 
 user_id = "Kong Zhi Syuen"
 bankAccount = "maybank"

@@ -84,7 +84,7 @@ def get_user_info(user_id):
     }
 
     # Get bank accounts
-    accounts_ref = db.collection("users").document(user_id).collection("bankAccounts").stream()
+    accounts_ref = db.collection("users").document(user_id).collection("linkedAccounts").stream()
     accounts = []
     for acc in accounts_ref:
         acc_data = acc.to_dict()
@@ -99,7 +99,7 @@ def get_user_info(user_id):
     transactions = []
     for acc in accounts:
         acc_id = acc["bankAccountId"]
-        txns = db.collection("users").document(user_id).collection("bankAccounts") \
+        txns = db.collection("users").document(user_id).collection("linkedAccounts") \
             .document(acc_id).collection("transactions").stream()
         for txn in txns:
             txn_data = txn.to_dict()
@@ -124,7 +124,7 @@ def get_user_info(user_id):
 
     return jsonify({
         "profile": decrypted_info,
-        "bankAccounts": accounts,
+        "linkedAccounts": accounts,
         "transactions": transactions,
         "dashboard": category_totals
     }), 200
@@ -161,7 +161,7 @@ def get_dashboard(user_id):
     month_start = datetime.datetime(now.year, now.month, 1)
 
     user_ref = db.collection('users').document(user_id)
-    banks_ref = user_ref.collection('bankAccounts')
+    banks_ref = user_ref.collection('linkedAccounts')
 
     banks = banks_ref.stream()
     all_transactions = []
