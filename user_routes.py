@@ -1,5 +1,6 @@
 # user_routes.py
 import datetime
+import uuid
 from flask import Blueprint, request, jsonify
 from firebase_utils import db
 from encryption_utils import encrypt_data, decrypt_data, tokenize_vector
@@ -55,14 +56,15 @@ def update_user_profile():
     db.collection("users").document(user_id).update(update_fields)
     return jsonify({"message": "User profile updated"}), 200
 
-# Register palm vector (encrypted)
-@user_bp.route("/register_palm", methods=["POST"])
-def register_palm():
+# Register palm or face vector
+@user_bp.route("/register_vector", methods=["POST"])
+def register_vector():
     """
     JSON expected:
     {
         "userId": "user_id",
         "vector": [1, 2, 3]
+        "mode": "palm"  # or "face", default is "palm"
     }
     """
     data = request.json
@@ -73,9 +75,29 @@ def register_palm():
         return jsonify({"error": "Vector must be a list"}), 400
     
     user_id = data["userId"]
-    tokenized_vector = tokenize_vector(data["vector"])
-    db.collection("users").document(user_id).set({"palmToken": tokenized_vector}, merge=True)
-    return jsonify({"message": "Palm registered"}), 200
+    vector = data["vector"]
+    mode = data.get("mode", "palm")
+
+    user_ref = db.collection("users").document(user_id)
+    user_doc = user_ref.get()
+    user_data = user_doc.to_dict() if user_doc.exists else {}
+
+    existing_token = user_data.get("vectorToken")
+
+    if existing_token:
+        # Update the appropriate vector type in existing token
+        token_ref = db.collection("tokenVault").document(existing_token)
+        token_ref.set({f"{mode}Vector": tokenize_vector(vector, mode)}, merge=True)
+        token_id = existing_token
+    else:
+        # Create new token document
+        token_id = str(uuid.uuid4())
+        db.collection("tokenVault").document(token_id).set({
+            f"{mode}Vector": tokenize_vector(vector, mode)
+        })
+        user_ref.set({"vectorToken": token_id}, merge=True)
+
+    return jsonify({"message": f"{mode.capitalize()} vector registered", "tokenId": token_id}), 200
 
 # Add bank account
 @user_bp.route("/add_bank_account", methods=["POST"])
