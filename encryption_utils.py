@@ -35,7 +35,8 @@ def tokenize_vector(vector: list[float]) -> str:
         "vector": vector,
     }
 
-    db.collection("tokenVault").document(vector_token).set(doc_data)
+    db.collection("tokenVault").document(vector_token).update(doc_data)
+    return vector_token
 
 
 # Resolves a vector token back to list of floats
