@@ -85,7 +85,7 @@ def merchant_add_transaction():
 
     for user_doc in users_docs:
         user_data = user_doc.to_dict()
-        user_palm_token = user_data.get("palmToken")
+        user_palm_token = user_data.get("vectorToken")
         
         if user_palm_token == matched_token_id:
             matched_user_id = user_doc.id
