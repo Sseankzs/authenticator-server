@@ -114,8 +114,8 @@ def merchant_add_transaction():
     encrypted_tx = {
         'transactionId': transaction_id,
         'amount': data['amount'],
-        'category': encrypt_data(data['category']),
-        'merchant': encrypt_data(data['merchant']),
+        'category': data['category'],
+        'merchant': data['merchant'],
         'status': "success",
         'timestamp': firestore.SERVER_TIMESTAMP
     }

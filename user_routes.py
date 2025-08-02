@@ -130,8 +130,8 @@ def get_transactions(user_id):
             transactions.append({
                 "transactionId": txn.id,
                 "amount": txn_data["amount"],
-                "category": decrypt_data(txn_data["category"]),
-                "merchant": decrypt_data(txn_data["merchant"]),
+                "category": txn_data["category"],
+                "merchant": txn_data["merchant"],
                 "status": txn_data["status"],
                 "timestamp": txn_data["timestamp"],
                 "bankAccountId": acc_id
