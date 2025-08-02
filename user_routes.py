@@ -98,7 +98,7 @@ def get_user_info(user_id):
     # Get all transactions
     transactions = []
     for acc in accounts:
-        acc_id = acc["bankAccountId"]
+        acc_id = acc["bankAccountId"].lower()
         txns = db.collection("users").document(user_id).collection("linkedAccounts") \
             .document(acc_id).collection("transactions").stream()
         for txn in txns:
