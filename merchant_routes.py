@@ -27,6 +27,7 @@ def merchant_add_transaction():
     """
     json expected:
     {
+        "mode": "palm" or "face" # yet to be implemented
         "transactionId": "optional_custom_id",
         "amount": 100.0,
         "category": "Food",
@@ -49,7 +50,10 @@ def merchant_add_transaction():
 
     for doc in vault_docs:
         vault_data = doc.to_dict()
-        stored_vector = vault_data.get("vector")
+        mode = data.get("mode", "palm")  # default to palm
+        vector_key = "palmVector" if mode == "palm" else "faceVector"
+        stored_vector = vault_data.get(vector_key)
+
         
         if not stored_vector:
             logger.info(f"Token {doc.id}: No vector found, skipping")
