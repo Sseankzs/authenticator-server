@@ -1,8 +1,10 @@
+import uuid
 from cryptography.fernet import Fernet
 import base64
 import os
 import json
 from dotenv import load_dotenv
+from firebase_utils import db
 
 load_dotenv()
 
@@ -25,12 +27,22 @@ def encrypt_data(data: str) -> str:
 def decrypt_data(data: str) -> str:
     return cipher.decrypt(data.encode()).decode()
 
-# Encrypt a list of floats (vector)
-def encrypt_vector(vector: list[float]) -> str:
-    json_string = json.dumps(vector)
-    return encrypt_data(json_string)
+# tokenizes a list of floats (vector)
+def tokenize_vector(vector: list[float]) -> str:
+    vector_token = str(uuid.uuid4())
 
-# Decrypt a vector string back to list of floats
-def decrypt_vector(encrypted_str: str) -> list[float]:
-    json_string = decrypt_data(encrypted_str)
-    return json.loads(json_string)
+    doc_data = {
+        "vector": vector,
+    }
+
+    db.collection("tokenVault").document(vector_token).set(doc_data)
+
+
+# Resolves a vector token back to list of floats
+# Call this function after identifying the vector in the toke vault
+def resolve_vector_token(token: str) -> list[float]:
+    doc = db.collection("tokenVault").document(token).get()
+    if not doc.exists:
+        raise ValueError("Vector token not found in database.")
+    else:
+        return doc.to_dict()

@@ -26,15 +26,24 @@ def register_user():
 # Register palm vector (encrypted)
 @user_bp.route("/register_palm", methods=["POST"])
 def register_palm():
+    """
+    JSON expected:
+    {
+        "userId": "user_id",
+        "vector": [1, 2, 3]
+    }
+    """
     data = request.json
+    #check if valid json passed
     if "userId" not in data or "vector" not in data:
         return jsonify({"error": "Missing userId or vector"}), 400
     if not isinstance(data["vector"], list):
         return jsonify({"error": "Vector must be a list"}), 400
+    
     user_id = data["userId"]
-    encrypted_vector = encrypt_vector(data["vector"])
-    db.collection("users").document(user_id).update({"palmVector": encrypted_vector})
-    return jsonify({"message": "Palm vector registered"}), 200
+    tokenized_vector = tokenize_value(data["vector"])
+    db.collection("users").document(user_id).update({"palmToken": tokenized_vector})
+    return jsonify({"message": "Palm registered"}), 200
 
 # Add bank account
 @user_bp.route("/add_bank_account", methods=["POST"])
@@ -65,71 +74,15 @@ def set_preferences(user_id):
     db.collection("users").document(user_id).update({"preferences": prefs})
     return jsonify({"message": "Preferences updated"}), 200
 
-# Get all user info
-@user_bp.route("/get_user_info/<user_id>", methods=["GET"])
-def get_user_info(user_id):
-    user_doc = db.collection("users").document(user_id).get()
-    if not user_doc.exists:
-        return jsonify({"error": "User not found"}), 404
-
-    user_data = user_doc.to_dict()
-    decrypted_info = {
-        "email": resolve_token(user_data.get("email", "")),
-        "fullName": resolve_token(user_data.get("fullName", "")),
-        "icNumber": resolve_token(user_data.get("icNumber", "")),
-        "phoneNumber": resolve_token(user_data.get("phoneNumber", "")),
-        "defaultAccount": user_data.get("defaultAccount", ""),
-        "preferences": user_data.get("preferences", {}),
-    }
-
-    # Get bank accounts
-    accounts_ref = db.collection("users").document(user_id).collection("linkedAccounts").stream()
-    accounts = []
-    for acc in accounts_ref:
-        acc_data = acc.to_dict()
-        accounts.append({
-            "bankAccountId": acc.id,
-            "bankName": decrypt_data(acc_data.get("bankName", "")),
-            "accountType": decrypt_data(acc_data.get("accountType", "")),
-            "balance": acc_data.get("balance", 0),
-        })
-
-    # Get all transactions
-    transactions = []
-    for acc in accounts:
-        acc_id = acc["bankAccountId"].lower()
-        txns = db.collection("users").document(user_id).collection("linkedAccounts") \
-            .document(acc_id).collection("transactions").stream()
-        for txn in txns:
-            txn_data = txn.to_dict()
-            transactions.append({
-                "transactionId": txn.id,
-                "amount": txn_data["amount"],
-                "category": txn_data["category"],
-                "merchant": txn_data["merchant"],
-                "status": txn_data["status"],
-                "timestamp": txn_data["timestamp"],
-                "bankAccountId": acc_id
-            })
-
-    # Dashboard data (last month only, by category)
-    now = datetime.datetime.utcnow()
-    one_month_ago = now - datetime.timedelta(days=30)
-    category_totals = {}
-    for txn in transactions:
-        if txn["timestamp"].replace(tzinfo=None) >= one_month_ago:
-            cat = txn["category"]
-            category_totals[cat] = category_totals.get(cat, 0) + txn["amount"]
-
-    return jsonify({
-        "profile": decrypted_info,
-        "linkedAccounts": accounts,
-        "transactions": transactions,
-        "dashboard": category_totals
-    }), 200
-
+# Get user transactions
 @user_bp.route("/transactions/<user_id>", methods=["GET"])
 def get_transactions(user_id):
+    """
+    JSON expected:
+    {
+        "userId": "uZsYmasM5B3dVXTYjt3J"
+    }
+    """
     user_doc = db.collection("users").document(user_id).get()
     if not user_doc.exists:
         return jsonify({"error": "User not found"}), 404
@@ -153,40 +106,3 @@ def get_transactions(user_id):
             })
 
     return jsonify({"transactions": transactions}), 200
-
-@user_bp.route("/dashboard/<user_id>", methods=["GET"])
-def get_dashboard(user_id):
-    now = datetime.datetime.now()
-    month_start = datetime.datetime(now.year, now.month, 1)
-
-    user_ref = db.collection('users').document(user_id)
-    banks_ref = user_ref.collection('linkedAccounts')
-
-    banks = banks_ref.stream()
-    all_transactions = []
-
-    for bank in banks:
-        txns_ref = banks_ref.document(bank.id).collection('transactions')
-        txns = txns_ref.where('timestamp', '>=', month_start).order_by('timestamp').stream()
-        for txn in txns:
-            data = txn.to_dict()
-            amount = float(data['amount']) if isinstance(data['amount'], (int, float)) else float(str(data['amount']))
-            all_transactions.append({
-                'amount': amount,
-                'category': data.get('category', 'Others'),
-                'timestamp': data.get('timestamp'),
-                'merchant': data.get('merchant', ''),
-                'status': data.get('status', '')
-            })
-
-    total_spent = sum(txn['amount'] for txn in all_transactions)
-    category_totals = {}
-    for txn in all_transactions:
-        cat = txn['category']
-        category_totals[cat] = category_totals.get(cat, 0) + txn['amount']
-
-    return {
-        'totalSpent': total_spent,
-        'categoryTotals': category_totals,
-        'transactionCount': len(all_transactions)
-    }

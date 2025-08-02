@@ -33,36 +33,46 @@ def merchant_add_transaction():
     if not input_vector:
         return jsonify({'error': 'Palm vector is required'}), 400
 
-    # Step 1: Find matching user
-    users_ref = db.collection("users").stream()
+    # Step 1: Match against vectors in tokenVault
+    vault_docs = db.collection("tokenVault").stream()
     matched_user_id = None
-    logger.info("Starting palm vector matching process...")
-    
-    for user in users_ref:
-        user_data = user.to_dict()
-        if "palmVector" not in user_data:
+
+    for doc in vault_docs:
+        vault_data = doc.to_dict()
+        stored_vector = vault_data.get("vector")
+        if not stored_vector or "userId" not in vault_data:
             continue
         try:
-            stored_vector = decrypt_vector(user_data["palmVector"])
             similarity = cosine_similarity(input_vector, stored_vector)
-            logger.info(f"User {user.id}: similarity = {similarity:.4f}")
+            logger.info(f"Token {doc.id}: similarity = {similarity:.4f}")
             if similarity >= 0.99:
-                matched_user_id = user.id
+                matched_user_id = vault_data["userId"]
                 logger.info(f"✓ Match found! User ID: {matched_user_id} (similarity: {similarity:.4f})")
                 break
         except Exception as e:
-            logger.warning(f"Error processing user {user.id}: {str(e)}")
+            logger.warning(f"Error comparing token {doc.id}: {str(e)}")
             continue
+
+    if not matched_user_id:
+        logger.error("No matching user found with similarity >= 0.99")
+        return jsonify({'error': 'No matching user found'}), 403
 
     if not matched_user_id:
         logger.error("No matching user found with similarity >= 0.95")
         return jsonify({'error': 'No matching user found'}), 403
 
     # Step 2: Get default account
+    category = data['category']
     matched_user_doc = db.collection("users").document(matched_user_id).get()
-    default_account = matched_user_doc.to_dict().get("defaultAccount")
-    if not default_account:
-        return jsonify({'error': 'Default account not set'}), 400
+    user_data = matched_user_doc.to_dict()
+    preferences = user_data.get("preferences", {})
+    preferred_account = preferences.get(category)
+    if not preferred_account:
+        logger.info(f"No preferred account found for category '{category}', using defaultAccount.")
+        preferred_account = user_data.get("defaultAccount")
+    if not preferred_account:
+        return jsonify({'error': 'No suitable account found'}), 400
+    
 
     # Step 3: Store transaction
     transaction_id = str(uuid.uuid4())
@@ -78,7 +88,7 @@ def merchant_add_transaction():
     tx_ref = db.collection('users') \
         .document(matched_user_id) \
         .collection('linkedAccounts') \
-        .document(default_account) \
+        .document(preferred_account) \
         .collection('transactions') \
         .document(transaction_id)
 
