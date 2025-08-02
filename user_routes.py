@@ -42,7 +42,7 @@ def register_palm():
     
     user_id = data["userId"]
     tokenized_vector = tokenize_vector(data["vector"])
-    db.collection("users").document(user_id).update({"palmToken": tokenized_vector})
+    db.collection("users").document(user_id).set({"palmToken": tokenized_vector}, merge=True)
     return jsonify({"message": "Palm registered"}), 200
 
 # Add bank account
