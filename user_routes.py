@@ -130,8 +130,8 @@ def get_transactions(user_id):
             transactions.append({
                 "transactionId": txn.id,
                 "amount": txn_data["amount"],
-                "category": decrypt_data(txn_data["category"]),
-                "merchant": decrypt_data(txn_data["merchant"]),
+                "category": txn_data["category"],
+                "merchant": txn_data["merchant"],
                 "status": txn_data["status"],
                 "timestamp": txn_data["timestamp"],
                 "bankAccountId": acc_id
@@ -180,8 +180,8 @@ def get_user_info(user_id):
             transactions.append({
                 "transactionId": txn.id,
                 "amount": txn_data["amount"],
-                "category": decrypt_data(txn_data["category"]),
-                "merchant": decrypt_data(txn_data["merchant"]),
+                "category": txn_data["category"],
+                "merchant": txn_data["merchant"],
                 "status": txn_data["status"],
                 "timestamp": txn_data["timestamp"],
                 "bankAccountId": acc_id
@@ -202,3 +202,23 @@ def get_user_info(user_id):
         "transactions": transactions,
         "dashboard": category_totals
     }), 200
+
+@user_bp.route("/toggleBio/<user_id>", methods=["GET"])
+def toggle_bio(user_id):
+    user_ref = db.collection("users").document(user_id)
+    user_doc = user_ref.get()
+
+    if not user_doc.exists:
+        return jsonify({"error": "User not found"}), 404
+
+    user_data = user_doc.to_dict()
+    current_bio_mode = user_data.get("bioMode", False)
+
+    # If user has no palmToken, set bioMode to False
+    if not user_data.get("palmToken"):
+        user_ref.update({"bioMode": False})
+        return jsonify({"message": "No palmToken found. bioMode disabled."}), 200
+
+    # Toggle the current bioMode
+    user_ref.update({"bioMode": not current_bio_mode})
+    return jsonify({"bioMode": not current_bio_mode}), 200
