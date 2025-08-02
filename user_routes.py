@@ -2,7 +2,7 @@
 import datetime
 from flask import Blueprint, request, jsonify
 from firebase_utils import db
-from encryption_utils import encrypt_data, decrypt_data, encrypt_vector, decrypt_vector
+from encryption_utils import encrypt_data, decrypt_data, tokenize_vector, resolve_vector_token
 from token_utils import tokenize_value, resolve_token
 
 user_bp = Blueprint('user', __name__)
@@ -41,7 +41,7 @@ def register_palm():
         return jsonify({"error": "Vector must be a list"}), 400
     
     user_id = data["userId"]
-    tokenized_vector = tokenize_value(data["vector"])
+    tokenized_vector = tokenize_vector(data["vector"])
     db.collection("users").document(user_id).update({"palmToken": tokenized_vector})
     return jsonify({"message": "Palm registered"}), 200
 

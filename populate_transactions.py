@@ -7,6 +7,14 @@ BASE_URL = "https://authenticator-server-87a8.onrender.com"  # adjust if deploye
 
 user_id = "uZsYmasM5B3dVXTYjt3J"
 palm_vector = [0.12, 0.34, 0.18, 0.45, 0.67, 0.23]  # Example palm vector
+res = requests.post(f"{BASE_URL}/register_palm", json={
+    "userId": user_id,
+    "vector": palm_vector
+})
+if res.ok:
+        print(f"[OK] palm vector registered for {user_id}")
+else:
+        print(f"[ERR] palm vector registration failed for {user_id}")
 
 
 CATEGORIES = ['Groceries', 'Food & Drink', 'Bills', 'Transport', 'Others']

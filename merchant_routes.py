@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from firebase_utils import db, firestore
-from encryption_utils import encrypt_data, decrypt_vector
+from encryption_utils import encrypt_data, resolve_vector_token
 import uuid
 import numpy as np
 import logging
@@ -43,7 +43,7 @@ def merchant_add_transaction():
         if not stored_vector or "userId" not in vault_data:
             continue
         try:
-            similarity = cosine_similarity(input_vector, stored_vector)
+            similarity = cosine_similarity(input_vector, resolve_vector_token(stored_vector))
             logger.info(f"Token {doc.id}: similarity = {similarity:.4f}")
             if similarity >= 0.99:
                 matched_user_id = vault_data["userId"]
