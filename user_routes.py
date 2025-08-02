@@ -55,8 +55,7 @@ def set_default_account():
     data = request.json
     user_id = data["userId"]
     default_acc = data["accountId"]
-    db.collection("users").document(user_id).update({"accountId": default_acc})
-    db.collection("users").document(user_id).update({"defaultAccount": data["bankName"] + "_" + data["accountType"] })
+    db.collection("users").document(user_id).update({"defaultAccount": default_acc})
     return jsonify({"message": "Default account set"}), 200
 
 # Update preferences (future use)
