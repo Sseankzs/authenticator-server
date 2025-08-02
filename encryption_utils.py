@@ -28,18 +28,11 @@ def decrypt_data(data: str) -> str:
     return cipher.decrypt(data.encode()).decode()
 
 # tokenizes a list of floats (vector)
-def tokenize_vector(vector: list[float], type: str) -> str:
-    if type not in ["palm", "face"]:
+def tokenize_vector(vector: list[float], mode: str) -> dict:
+    if mode not in ["palm", "face"]:
         raise ValueError("Invalid type. Must be 'palm' or 'face'.")
-    elif type == "palm":
-        vector_token = f"palm_{str(uuid.uuid4())}"
-        vector_name = "palm_vector"
-    else:
-        vector_token = f"face_{str(uuid.uuid4())}"
-        vector_name = "face_vector"
 
-    db.collection("tokenVault").document(vector_token).set({vector_name: vector})
-    return vector_token
+    return {f"{mode}Vector": vector}
 
 
 # Resolves a vector token back to list of floats
