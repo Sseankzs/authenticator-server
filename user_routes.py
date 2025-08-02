@@ -87,14 +87,12 @@ def register_vector():
     if existing_token:
         # Update the appropriate vector type in existing token
         token_ref = db.collection("tokenVault").document(existing_token)
-        token_ref.set({f"{mode}Vector": tokenize_vector(vector, mode)}, merge=True)
+        token_ref.set(tokenize_vector(vector, mode), merge=True)
         token_id = existing_token
     else:
         # Create new token document
         token_id = str(uuid.uuid4())
-        db.collection("tokenVault").document(token_id).set({
-            f"{mode}Vector": tokenize_vector(vector, mode)
-        })
+        db.collection("tokenVault").document(token_id).set(tokenize_vector(vector, mode))
         user_ref.set({"vectorToken": token_id}, merge=True)
 
     return jsonify({"message": f"{mode.capitalize()} vector registered", "tokenId": token_id}), 200
