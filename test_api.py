@@ -76,6 +76,9 @@ post("/merchant/add_transaction", {
     "vector": palm_vector  # Use the same palm vector for verification
 })
 
+# 6. Get transactions by ID
+get(f"/transactions/uZsYmasM5B3dVXTYjt3J")
+
 # 6. Get user info (Profile Page)
 get(f"/get_user_info/{user_id}")
 
