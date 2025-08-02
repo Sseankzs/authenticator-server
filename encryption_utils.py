@@ -31,18 +31,14 @@ def decrypt_data(data: str) -> str:
 def tokenize_vector(vector: list[float]) -> str:
     vector_token = str(uuid.uuid4())
 
-    doc_data = {
-        "vector": vector,
-    }
-
-    db.collection("tokenVault").document(vector_token).update(doc_data)
+    db.collection("tokenVault").document(vector_token).set({"vector": vector})
     return vector_token
 
 
 # Resolves a vector token back to list of floats
 # Call this function after identifying the vector in the toke vault
-def resolve_vector_token(token: str) -> list[float]:
-    doc = db.collection("tokenVault").document(token).get()
+def resolve_vector_token(vector: list[float]) -> str:
+    doc = db.collection("tokenVault").document().get()
     if not doc.exists:
         raise ValueError("Vector token not found in database.")
     else:

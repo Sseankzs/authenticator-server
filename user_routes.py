@@ -106,3 +106,67 @@ def get_transactions(user_id):
             })
 
     return jsonify({"transactions": transactions}), 200
+
+
+# Get all user info
+@user_bp.route("/get_user_info/<user_id>", methods=["GET"])
+def get_user_info(user_id):
+    user_doc = db.collection("users").document(user_id).get()
+    if not user_doc.exists:
+        return jsonify({"error": "User not found"}), 404
+
+    user_data = user_doc.to_dict()
+    decrypted_info = {
+        "email": resolve_token(user_data.get("email", "")),
+        "fullName": resolve_token(user_data.get("fullName", "")),
+        "icNumber": resolve_token(user_data.get("icNumber", "")),
+        "phoneNumber": resolve_token(user_data.get("phoneNumber", "")),
+        "defaultAccount": user_data.get("defaultAccount", ""),
+        "preferences": user_data.get("preferences", {}),
+    }
+
+    # Get bank accounts
+    accounts_ref = db.collection("users").document(user_id).collection("linkedAccounts").stream()
+    accounts = []
+    for acc in accounts_ref:
+        acc_data = acc.to_dict()
+        accounts.append({
+            "bankAccountId": acc.id,
+            "bankName": decrypt_data(acc_data.get("bankName", "")),
+            "accountType": decrypt_data(acc_data.get("accountType", "")),
+            "balance": acc_data.get("balance", 0),
+        })
+
+    # Get all transactions
+    transactions = []
+    for acc in accounts:
+        acc_id = acc["bankAccountId"].lower()
+        txns = db.collection("users").document(user_id).collection("linkedAccounts") \
+            .document(acc_id).collection("transactions").stream()
+        for txn in txns:
+            txn_data = txn.to_dict()
+            transactions.append({
+                "transactionId": txn.id,
+                "amount": txn_data["amount"],
+                "category": txn_data["category"],
+                "merchant": txn_data["merchant"],
+                "status": txn_data["status"],
+                "timestamp": txn_data["timestamp"],
+                "bankAccountId": acc_id
+            })
+
+    # Dashboard data (last month only, by category)
+    now = datetime.datetime.utcnow()
+    one_month_ago = now - datetime.timedelta(days=30)
+    category_totals = {}
+    for txn in transactions:
+        if txn["timestamp"].replace(tzinfo=None) >= one_month_ago:
+            cat = txn["category"]
+            category_totals[cat] = category_totals.get(cat, 0) + txn["amount"]
+
+    return jsonify({
+        "profile": decrypted_info,
+        "linkedAccounts": accounts,
+        "transactions": transactions,
+        "dashboard": category_totals
+    }), 200
