@@ -2,7 +2,7 @@
 import requests
 from datetime import datetime
 
-BASE_URL = "https://authenticator-server-87a8.onrender.com"
+BASE_URL = "http://127.0.0.1:5000"
 
 user_id = "Kong Zhi Syuen"
 bankAccount = "maybank"
@@ -81,13 +81,4 @@ get(f"/get_user_info/{user_id}")
 
 # 7. Get transaction history (Transaction Page)
 get(f"/transactions/{user_id}")
-
-# 8. Get dashboard summary (Dashboard Page)
-get(f"/dashboard/{user_id}")
-
-# 9. Simulate biometric vector verification → should return token
-token_response = post("/verify_vector", {
-    "vector": palm_vector
-})
-token = token_response.get("token")
 

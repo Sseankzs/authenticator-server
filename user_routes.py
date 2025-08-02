@@ -2,8 +2,7 @@
 import datetime
 from flask import Blueprint, request, jsonify
 from firebase_utils import db
-from encryption_utils import encrypt_data, decrypt_data, tokenize_vector, resolve_vector_token
-from token_utils import tokenize_value, resolve_token
+from encryption_utils import encrypt_data, decrypt_data, tokenize_vector
 
 user_bp = Blueprint('user', __name__)
 
@@ -13,15 +12,48 @@ def register_user():
     data = request.json
     user_id = data["userId"]
     encrypted_data = {
-        "email": tokenize_value(data["email"]),
-        "fullName": tokenize_value(data["fullName"]),
-        "icNumber": tokenize_value(data["icNumber"]),
-        "phoneNumber": tokenize_value(data.get("phoneNumber", "")),
+        "email": encrypt_data(data["email"]),
+        "fullName": encrypt_data(data["fullName"]),
+        "icNumber": encrypt_data(data["icNumber"]),
+        "phoneNumber": encrypt_data(data.get("phoneNumber", "")),
         "defaultAccount": "",
         "preferences": {},
     }
     db.collection("users").document(user_id).set(encrypted_data)
     return jsonify({"message": "User registered"}), 200
+
+@user_bp.route("/update_user_profile", methods=["POST"])
+def update_user_profile():
+    """
+    JSON expected:
+    {
+        "userId": "user_id",
+        "email": "new_email",              # optional
+        "fullName": "new_name",            # optional
+        "icNumber": "new_ic",              # optional
+        "phoneNumber": "new_phone_number"  # optional
+    }
+    """
+    data = request.json
+    user_id = data.get("userId")
+    if not user_id:
+        return jsonify({"error": "Missing userId"}), 400
+
+    update_fields = {}
+    if "email" in data:
+        update_fields["email"] = encrypt_data(data["email"])
+    if "fullName" in data:
+        update_fields["fullName"] = encrypt_data(data["fullName"])
+    if "icNumber" in data:
+        update_fields["icNumber"] = encrypt_data(data["icNumber"])
+    if "phoneNumber" in data:
+        update_fields["phoneNumber"] = encrypt_data(data["phoneNumber"])
+
+    if not update_fields:
+        return jsonify({"message": "No fields to update"}), 400
+
+    db.collection("users").document(user_id).update(update_fields)
+    return jsonify({"message": "User profile updated"}), 200
 
 # Register palm vector (encrypted)
 @user_bp.route("/register_palm", methods=["POST"])
@@ -117,10 +149,10 @@ def get_user_info(user_id):
 
     user_data = user_doc.to_dict()
     decrypted_info = {
-        "email": resolve_token(user_data.get("email", "")),
-        "fullName": resolve_token(user_data.get("fullName", "")),
-        "icNumber": resolve_token(user_data.get("icNumber", "")),
-        "phoneNumber": resolve_token(user_data.get("phoneNumber", "")),
+        "email": decrypt_data(user_data.get("email", "")),
+        "fullName": decrypt_data(user_data.get("fullName", "")),
+        "icNumber": decrypt_data(user_data.get("icNumber", "")),
+        "phoneNumber": decrypt_data(user_data.get("phoneNumber", "")),
         "defaultAccount": user_data.get("defaultAccount", ""),
         "preferences": user_data.get("preferences", {}),
     }
